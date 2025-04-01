@@ -3,7 +3,7 @@ from time import time
 from networkx import DiGraph, Graph
 
 
-def is_acceptable_solution(graph: DiGraph or Graph, D: list, k: int) -> bool:
+def is_acceptable_solution(graph: Graph, D: list, k: int) -> bool:
     for v in graph.nodes:
         if v not in D and number_same_elements(set(graph[v]), D) < k:
             return False
@@ -24,7 +24,7 @@ def number_same_elements(nv: set, d: set) -> int:
     return counter
 
 # TODO: speed up this because of intensive usage in swap
-def fitness(s: set, g: Graph or DiGraph, k: int, cache={}) -> float:
+def fitness(s: set, g: Graph, k: int, cache={}) -> float:
     viol = 0
     ineff =0
     max_ineff = 0
@@ -42,7 +42,7 @@ def fitness(s: set, g: Graph or DiGraph, k: int, cache={}) -> float:
 
     return (viol, len(s), ineff, max_ineff, len(g)-len(s))
 
-def fitness_rec_rem(s: set, v: int, fit: tuple, g: Graph or DiGraph, all_neighbors: dict, neighb_matrix: list, k: int, cache: dict) -> float:
+def fitness_rec_rem(s: set, v: int, fit: tuple, g: Graph, all_neighbors: dict, neighb_matrix: list, k: int, cache: dict) -> float:
 
     viol = fit[0]
     size = fit[1]-1
@@ -82,7 +82,7 @@ def fitness_rec_rem(s: set, v: int, fit: tuple, g: Graph or DiGraph, all_neighbo
     return (viol, size, ineff, max_ineff, len(g)-size)
 
 
-def fitness_rec_add(s: set, v: int, fit: tuple, g: Graph or DiGraph, all_neighbors: dict, neighb_matrix: list, k: int, cache) -> float:
+def fitness_rec_add(s: set, v: int, fit: tuple, g: Graph, all_neighbors: dict, neighb_matrix: list, k: int, cache) -> float:
     viol = fit[0]
     size = fit[1]+1
     ineff = fit[2]
@@ -115,7 +115,7 @@ def fitness_rec_add(s: set, v: int, fit: tuple, g: Graph or DiGraph, all_neighbo
     return (viol, size, ineff, max_ineff, len(g)-size)
 
 
-def cache_rec_add(s: set, v: int, fit: tuple, g: Graph or DiGraph, all_neighbors: dict, neighb_matrix: list, k: int, cache) -> float:
+def cache_rec_add(s: set, v: int, fit: tuple, g: Graph, all_neighbors: dict, neighb_matrix: list, k: int, cache) -> float:
     viol = fit[0]
     size = fit[1]+1
     ineff = fit[2]
@@ -150,7 +150,7 @@ def cache_rec_add(s: set, v: int, fit: tuple, g: Graph or DiGraph, all_neighbors
 
     return (viol, size, ineff, max_ineff, len(g)-size)
 
-def cache_rec_rem(s: set, v: int, fit: tuple, g: Graph or DiGraph, all_neighbors: dict, neighb_matrix: list, k: int, cache: dict) -> float:
+def cache_rec_rem(s: set, v: int, fit: tuple, g: Graph, all_neighbors: dict, neighb_matrix: list, k: int, cache: dict) -> float:
 
     viol = fit[0]
     size = fit[1]-1
