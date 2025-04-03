@@ -224,7 +224,7 @@ class genetic_algorithm:
         print("Initial population created, Time:", time() - start_time)
         self.evaluate_population()
         print("Initial population evaluated, Time:", time() - start_time)
-        while time() - start_time < self.time_limit and generation < self.generation_max and no_improvment < 3:
+        while time() - start_time < self.time_limit and generation < self.generation_max and no_improvment < 10:
             print("Current generation:", generation, "Time:", time() - start_time)
             oldBestFitness = self.best_fitness
             generation += 1
@@ -243,7 +243,7 @@ class genetic_algorithm:
     
 
 if __name__ == '__main__':
-    arguments={'instance_dir': "cities_small_instances",'instance':"oxford.txt", 'k':2, 'time_limit':600, 'generation_max':10000,'rseed': 42, 'population_size': 100, 'chromosome_length': 200, 'mutation_rate': 0.01, 'crossover_rate': 0.85, 'tournament_size': 5, 'elitism': True, 'penalty': 0.1}
+    arguments={'instance_dir': "cities_small_instances",'instance':"oxford.txt", 'k':2, 'time_limit':600, 'generation_max':1000,'rseed': 42, 'population_size': 1000, 'chromosome_length': 200, 'mutation_rate': 0.01, 'crossover_rate': 0.85, 'tournament_size': 5, 'elitism': True, 'penalty': 0.1}
     
     graph_open = arguments["instance_dir"] + '/' + arguments["instance"]
     print("Reading graph!")
