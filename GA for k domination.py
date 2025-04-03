@@ -2,13 +2,14 @@ from time import time
 from random import shuffle, random, seed
 from read_graph import read_graph
 from networkx import DiGraph, Graph
-from unit import fitness, fitness_rec_rem, fitness_rec_add, cache_rec_add, cache_rec_rem
+from unit import fitness, fitness_rec_rem, fitness_rec_add, cache_rec_add, cache_rec_rem, is_acceptable_solution
 import sys
 class genetic_algorithm:
-    def __init__(self, instance_name, k, graph: Graph, population_size, chromosome_length, mutation_rate, crossover_rate, tournament_size, elitism, time_limit, iteration_max, rseed):
+    def __init__(self, instance_name, k, graph: Graph, penalty, population_size, chromosome_length, mutation_rate, crossover_rate, tournament_size, elitism, time_limit, iteration_max, rseed):
         self.instance_name = instance_name
         self.k = k
         self.graph = graph
+        self.penalty = penalty
         self.time_limit = time_limit
         self.iteration_max = iteration_max
         self.nodes = list(self.graph.nodes) # kopiram cvorove zbog MJESANJA - necu da mjesam original
@@ -136,10 +137,10 @@ class genetic_algorithm:
             parent1 = self.tournament_selection()
             parent2 = self.tournament_selection()
             child1, child2 = self.crossover(parent1, parent2)
-            child1 = self.mutate(child1)
-            child2 = self.mutate(child2)
-            new_population.append(child1)
-            new_population.append(child2)
+            child1 = self.mutation(child1)
+            child2 = self.mutation(child2)
+            new_population.append(self.local_search_best(child1))
+            new_population.append(self.local_search_best(child2))
         self.population = new_population    
 
     
@@ -156,10 +157,6 @@ class genetic_algorithm:
         for i in range(len(c)):
             if c[i] == 1:
                 s.add(i)
-        # s = set(c)
-        # s = set([i for i in range(len(c)) if c[i] == 1])
-        
-
         improved = True
         cache = {}
         curr_fit = fitness(s, self.graph, self.k, cache)
@@ -210,21 +207,37 @@ class genetic_algorithm:
         #return curr_fit
 
     def run(self, generations):
+        start_time = time()
+        best_time = 0
+        iteration = 0
         self.initialize_population()
         self.evaluate_population()
-        for i in range(generations):
+        while time() - start_time < self.time_limit and iteration < self.iteration_max:
+            oldBestFitness = self.best_fitness
+            iteration += 1
             self.evolve()
             self.evaluate_population()
+            if self.first_fitness_better(self.best_fitness, oldBestFitness):
+                best_time = time() - start_time
+                print("Best fitness:", self.best_fitness, "Time:", best_time)
+            if self.fitness_equal(self.best_fitness, oldBestFitness):
+                print("Best fitness:", self.best_fitness, "Time:", best_time)
+                break
+        print("Best chromosome:", self.best_chromosome)
+        print("Chromosome acceptable: ", is_acceptable_solution(self.graph, self.best_chromosome, self.k))
+        print("Best fitness:", self.best_fitness, "Time:", time() - start_time)
         return self.best_chromosome, self.best_fitness
+    
+
 if __name__ == '__main__':
-    arguments={'instance_dir': "cities_small_instances",'instance':"oxford.txt", 'k':2, 'time_limit':600, 'iteration_max':10000,'rseed': 42, 'population_size': 100, 'chromosome_length': 200, 'mutation_rate': 0.01, 'crossover_rate': 0.85, 'tournament_size': 5, 'elitism': True}
+    arguments={'instance_dir': "cities_small_instances",'instance':"oxford.txt", 'k':2, 'time_limit':600, 'iteration_max':10000,'rseed': 42, 'population_size': 100, 'chromosome_length': 200, 'mutation_rate': 0.01, 'crossover_rate': 0.85, 'tournament_size': 5, 'elitism': True, 'penalty': 0.1}
     
     graph_open = arguments["instance_dir"] + '/' + arguments["instance"]
     print("Reading graph!")
     g = read_graph(graph_open)
     print("Graph loaded: ", graph_open)
     #g = read_graph("random_instances/NEW-V200-P0.2-G0.txt")
-    ga = genetic_algorithm(arguments['instance'], arguments['k'], g, arguments['population_size'], arguments['chromosome_length'], arguments['mutation_rate'], arguments['crossover_rate'], arguments['tournament_size'], arguments['elitism'], arguments['time_limit'], arguments['iteration_max'], arguments['rseed'])
+    ga = genetic_algorithm(arguments['instance'], arguments['k'], g, arguments['penalty'], arguments['population_size'], arguments['chromosome_length'], arguments['mutation_rate'], arguments['crossover_rate'], arguments['tournament_size'], arguments['elitism'], arguments['time_limit'], arguments['iteration_max'], arguments['rseed'])
     start_time = time()
     best_chromosome, best_fitness = ga.run(100)
     print("Best chromosome:", best_chromosome)
