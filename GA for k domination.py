@@ -1,20 +1,19 @@
 from time import time
-from random import shuffle, random, seed
+import random
 from read_graph import read_graph
 from networkx import DiGraph, Graph
 from unit import fitness, fitness_rec_rem, fitness_rec_add, cache_rec_add, cache_rec_rem, is_acceptable_solution
-import sys
 class genetic_algorithm:
-    def __init__(self, instance_name, k, graph: Graph, penalty, population_size, chromosome_length, mutation_rate, crossover_rate, tournament_size, elitism, time_limit, iteration_max, rseed):
+    def __init__(self, instance_name, k, graph: Graph, penalty, population_size, chromosome_length, mutation_rate, crossover_rate, tournament_size, elitism, time_limit, generation_max, rseed):
         self.instance_name = instance_name
         self.k = k
         self.graph = graph
         self.penalty = penalty
         self.time_limit = time_limit
-        self.iteration_max = iteration_max
+        self.generation_max = generation_max
         self.nodes = list(self.graph.nodes) # kopiram cvorove zbog MJESANJA - necu da mjesam original
         self.rseed = rseed
-        seed(self.rseed)
+        random.seed(self.rseed)
 
         self.population_size = population_size
         self.chromosome_length = chromosome_length
@@ -26,35 +25,45 @@ class genetic_algorithm:
         self.fitness = []
         self.best_chromosome = []
         self.best_fitness = 0
+
+        self.neighbors = {}
+        self.neighb_matrix = [[] for _ in range(len(self.graph.nodes))]
+        for v in self.graph.nodes:
+            self.neighbors[v] = set(self.graph[v])
+            self.neighb_matrix[v] = [False]*len(self.graph.nodes)
+            for u in self.graph[v]:
+                self.neighb_matrix[v][u] = True
+
             
     def initialize_population(self):
         for i in range(self.population_size):
             chromosome = [random.randint(0, 1) for j in range(self.chromosome_length)]
+            #chromosome = [random.choices([0, 1], k=self.chromosome_length) for j in range(self.chromosome_length)]
             self.population.append(chromosome)
-        for i in range(self.population_size / 2):
+        for i in range(self.population_size // 2):
             self.population[i] = self.local_search_best(self.population[i])
 
     def evaluate_population(self):
         self.fitness = []
+        self.best_fitness = self.fitness_function(self.population[0])
         for chromosome in self.population:
             fitness = self.fitness_function(chromosome)
             self.fitness.append(fitness)
-            if self.firstfinessbetter(fitness, self.best_fitness):
+            if self.first_fitness_better(fitness, self.best_fitness):
                 self.best_fitness = fitness
                 self.best_chromosome = chromosome
         return self.best_fitness, self.best_chromosome
     
     def fitness_function(self, chromosome):
         s = set([i for i in range(len(chromosome)) if chromosome[i] == 1])
-        return fitness(s, self.graph, self.k)
-
+        return fitness(s, self.graph, self.k, {})
     def tournament_selection(self):
         tournament = []
         for i in range(self.tournament_size):
             tournament.append(random.randint(0, self.population_size - 1))
         best_chromosome = tournament[0]
         for i in tournament:
-            if self.firstfinessbetter(self.fitness[i], self.fitness[best_chromosome]):
+            if self.first_fitness_better(self.fitness[i], self.fitness[best_chromosome]):
                 best_chromosome = i
         return self.population[best_chromosome]
     
@@ -72,9 +81,9 @@ class genetic_algorithm:
         if not self.elitism:
             return []
         # Select the best chromosomes based on fitness
-        sorted_population = sorted(zip(self.population, self.fitness), key=lambda x: x[1])
+        sorted_population = sorted(zip(self.population, self.fitness), key=lambda x: x[1], reverse=True)
+        # Select the top 10% of chromosomes
         elite_chromosomes = [chromosome for chromosome, _ in sorted_population[:self.population_size // 10]]
-        # Keep the 10% of best chromosomes in the population
         return elite_chromosomes
 
     def one_position_crossover(self, parent1, parent2):
@@ -136,7 +145,7 @@ class genetic_algorithm:
         while len(new_population) < self.population_size:
             parent1 = self.tournament_selection()
             parent2 = self.tournament_selection()
-            child1, child2 = self.crossover(parent1, parent2)
+            child1, child2 = self.one_position_crossover(parent1, parent2)
             child1 = self.mutation(child1)
             child2 = self.mutation(child2)
             new_population.append(self.local_search_best(child1))
@@ -199,46 +208,51 @@ class genetic_algorithm:
                 cache_rec_rem(s, best_v, curr_fit, self.graph, self.neighbors, self.neighb_matrix, self.k, cache)
                 s.remove(best_v)
                 curr_fit = best_fit
-        restult = [0] * len(c)
+        result = [0] * self.chromosome_length
         for i in s:
-            restult[i] = 1
+            result[i] = 1
 
-        return restult
+        return result
         #return curr_fit
 
-    def run(self, generations):
+    def run(self):
         start_time = time()
         best_time = 0
-        iteration = 0
+        generation = 1
+        no_improvment = 0
         self.initialize_population()
+        print("Initial population created, Time:", time() - start_time)
         self.evaluate_population()
-        while time() - start_time < self.time_limit and iteration < self.iteration_max:
+        print("Initial population evaluated, Time:", time() - start_time)
+        while time() - start_time < self.time_limit and generation < self.generation_max and no_improvment < 3:
+            print("Current generation:", generation, "Time:", time() - start_time)
             oldBestFitness = self.best_fitness
-            iteration += 1
+            generation += 1
             self.evolve()
             self.evaluate_population()
             if self.first_fitness_better(self.best_fitness, oldBestFitness):
+                no_improvment = 0
                 best_time = time() - start_time
-                print("Best fitness:", self.best_fitness, "Time:", best_time)
-            if self.fitness_equal(self.best_fitness, oldBestFitness):
-                print("Best fitness:", self.best_fitness, "Time:", best_time)
-                break
-        print("Best chromosome:", self.best_chromosome)
+                print("Best fitness :", self.best_fitness, "Time:", best_time)
+            else:
+                no_improvment += 1
+                print("No improvement, no_improvment:", no_improvment)
         print("Chromosome acceptable: ", is_acceptable_solution(self.graph, self.best_chromosome, self.k))
-        print("Best fitness:", self.best_fitness, "Time:", time() - start_time)
+        print("Best fitness:", self.best_fitness, "Time:", time() - start_time, "Generation:", generation)
         return self.best_chromosome, self.best_fitness
     
 
 if __name__ == '__main__':
-    arguments={'instance_dir': "cities_small_instances",'instance':"oxford.txt", 'k':2, 'time_limit':600, 'iteration_max':10000,'rseed': 42, 'population_size': 100, 'chromosome_length': 200, 'mutation_rate': 0.01, 'crossover_rate': 0.85, 'tournament_size': 5, 'elitism': True, 'penalty': 0.1}
+    arguments={'instance_dir': "cities_small_instances",'instance':"oxford.txt", 'k':2, 'time_limit':600, 'generation_max':10000,'rseed': 42, 'population_size': 100, 'chromosome_length': 200, 'mutation_rate': 0.01, 'crossover_rate': 0.85, 'tournament_size': 5, 'elitism': True, 'penalty': 0.1}
     
     graph_open = arguments["instance_dir"] + '/' + arguments["instance"]
     print("Reading graph!")
     g = read_graph(graph_open)
     print("Graph loaded: ", graph_open)
     #g = read_graph("random_instances/NEW-V200-P0.2-G0.txt")
-    ga = genetic_algorithm(arguments['instance'], arguments['k'], g, arguments['penalty'], arguments['population_size'], arguments['chromosome_length'], arguments['mutation_rate'], arguments['crossover_rate'], arguments['tournament_size'], arguments['elitism'], arguments['time_limit'], arguments['iteration_max'], arguments['rseed'])
+    ga = genetic_algorithm(arguments['instance'], arguments['k'], g, arguments['penalty'], arguments['population_size'], g.number_of_nodes(), arguments['mutation_rate'], arguments['crossover_rate'], arguments['tournament_size'], arguments['elitism'], arguments['time_limit'], arguments['generation_max'], arguments['rseed'])
+
+    #ga = genetic_algorithm(arguments['instance'], arguments['k'], g, arguments['penalty'], arguments['population_size'], arguments['chromosome_length'], arguments['mutation_rate'], arguments['crossover_rate'], arguments['tournament_size'], arguments['elitism'], arguments['time_limit'], arguments['iteration_max'], arguments['rseed'])
     start_time = time()
-    best_chromosome, best_fitness = ga.run(100)
-    print("Best chromosome:", best_chromosome)
-    print("Best fitness:", best_fitness)
+    best_chromosome, best_fitness = ga.run()
+    print("Final best fitness:", best_fitness)

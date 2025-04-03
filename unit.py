@@ -24,7 +24,7 @@ def number_same_elements(nv: set, d: set) -> int:
     return counter
 
 # TODO: speed up this because of intensive usage in swap
-def fitness(s: set, g: Graph, k: int, cache={}) -> float:
+def fitness(s: set, g: Graph, k: int, cache={}) -> tuple:
     viol = 0
     ineff =0
     max_ineff = 0
