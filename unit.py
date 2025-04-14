@@ -5,7 +5,7 @@ from networkx import DiGraph, Graph
 
 def is_acceptable_solution(graph: Graph, D: list, k: int) -> bool:
     for v in graph.nodes:
-        if v not in D and number_same_elements(set(graph[v]), D) < k:
+        if v not in D and number_same_elements(set(graph.neighbors(v)), D) < k:
             return False
     return True
 
@@ -30,7 +30,7 @@ def fitness(s: set, g: Graph, k: int, cache={}) -> tuple:
     max_ineff = 0
     for v in g.nodes:
         if v not in s:
-            neighbors = set(g[v])
+            neighbors = set(g.neighbors(v))
             nse = number_same_elements(neighbors, s)
             if nse < k:
                 viol +=(k-nse)
@@ -52,7 +52,7 @@ def fitness_rec_rem(s: set, v: int, fit: tuple, g: Graph, all_neighbors: dict, n
     srem = set(s)
     srem.remove(v)
 
-    for u in g[v]:
+    for u in g.neighbors(v):
         if u not in s: # then s not in 'srem' <== s intersect srem = s, srem / s = {v}, v not in g[v]
             nse_s = cache[u]
             if nse_s < k:
@@ -88,7 +88,7 @@ def fitness_rec_add(s: set, v: int, fit: tuple, g: Graph, all_neighbors: dict, n
     ineff = fit[2]
     max_ineff = fit[3]
 
-    for u in g[v]:
+    for u in g.neighbors(v):
         if u not in s:  # then s not in 'srem' <== s intersect srem = s, srem / s = {v}, v not in g[v]
             nse_s = cache[u]
             if nse_s < k:
@@ -121,7 +121,7 @@ def cache_rec_add(s: set, v: int, fit: tuple, g: Graph, all_neighbors: dict, nei
     ineff = fit[2]
     max_ineff = fit[3]
 
-    for u in g[v]:
+    for u in g.neighbors(v):
         if u not in s:  # then s not in 'srem' <== s intersect srem = s, srem / s = {v}, v not in g[v]
             nse_s = cache[u]
             if nse_s < k:
@@ -160,7 +160,7 @@ def cache_rec_rem(s: set, v: int, fit: tuple, g: Graph, all_neighbors: dict, nei
     srem = set(s)
     srem.remove(v)
 
-    for u in g[v]:
+    for u in g.neighbors(v):
         if u not in s: # then s not in 'srem' <== s intersect srem = s, srem / s = {v}, v not in g[v]
             nse_s = cache[u]
             if nse_s < k:
