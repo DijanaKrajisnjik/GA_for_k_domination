@@ -4,13 +4,14 @@ from read_graph import read_graph
 from networkx import DiGraph, Graph
 from unit import fitness, fitness_rec_rem, fitness_rec_add, cache_rec_add, cache_rec_rem, is_acceptable_solution
 class genetic_algorithm:
-    def __init__(self, instance_name, k, graph: Graph, penalty, population_size, chromosome_length, mutation_rate, crossover_rate, tournament_size, elitism, time_limit, generation_max, rseed):
+    def __init__(self, instance_name, k, graph: Graph, penalty, population_size, chromosome_length, mutation_rate, crossover_rate, tournament_size, elitism, time_limit, generation_max, max_no_improvment, rseed):
         self.instance_name = instance_name
         self.k = k
         self.graph = graph
         self.penalty = penalty
         self.time_limit = time_limit
         self.generation_max = generation_max
+        self.max_no_improvment = max_no_improvment
         self.nodes = list(self.graph.nodes) # kopiram cvorove zbog MJESANJA - necu da mjesam original
         self.rseed = rseed
         random.seed(self.rseed)
@@ -234,7 +235,7 @@ class genetic_algorithm:
         print("Initial population created, Time:", time() - start_time)
         self.evaluate_population()
         print("Initial population evaluated, Time:", time() - start_time)
-        while time() - start_time < self.time_limit and generation < self.generation_max and no_improvment < 3:
+        while time() - start_time < self.time_limit and generation < self.generation_max and no_improvment < self.max_no_improvment:
             print("Current generation:", generation, "Time:", time() - start_time)
             oldBestFitness = self.best_fitness
             generation += 1
@@ -255,14 +256,14 @@ class genetic_algorithm:
     
 
 if __name__ == '__main__':
-    arguments={'instance_dir': "cities_small_instances",'instance':"oxford.txt", 'k':4, 'time_limit':600, 'generation_max':100,'rseed': 77, 'population_size': 400, 'chromosome_length': 200, 'mutation_rate': 0.05, 'crossover_rate': 0.85, 'tournament_size': 4, 'elitism': True, 'penalty': 0.005}
+    arguments={'instance_dir': "cities_small_instances",'instance':"oxford.txt", 'k':2, 'time_limit':600, 'generation_max':100, 'max_no_improvment': 4,'rseed': 77, 'population_size': 400, 'chromosome_length': 200, 'mutation_rate': 0.05, 'crossover_rate': 0.85, 'tournament_size': 4, 'elitism': True, 'penalty': 0.005}
     
     graph_open = arguments["instance_dir"] + '/' + arguments["instance"]
     print("Reading graph!")
     g = read_graph(graph_open)
     print("Graph loaded: ", graph_open)
 
-    ga = genetic_algorithm(arguments['instance'], arguments['k'], g, arguments['penalty'], arguments['population_size'], g.number_of_nodes(), arguments['mutation_rate'], arguments['crossover_rate'], arguments['tournament_size'], arguments['elitism'], arguments['time_limit'], arguments['generation_max'], arguments['rseed'])
+    ga = genetic_algorithm(arguments['instance'], arguments['k'], g, arguments['penalty'], arguments['population_size'], g.number_of_nodes(), arguments['mutation_rate'], arguments['crossover_rate'], arguments['tournament_size'], arguments['elitism'], arguments['time_limit'], arguments['generation_max'], arguments['max_no_improvment'], arguments['rseed'])
 
     start_time = time()
     best_chromosome, best_fitness = ga.run()
