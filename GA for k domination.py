@@ -256,7 +256,7 @@ class genetic_algorithm:
     
 
 if __name__ == '__main__':
-    arguments={'instance_dir': "cities_small_instances",'instance':"oxford.txt", 'k':2, 'time_limit':600, 'generation_max':100, 'max_no_improvment': 4,'rseed': 77, 'population_size': 400, 'chromosome_length': 200, 'mutation_rate': 0.05, 'crossover_rate': 0.85, 'tournament_size': 4, 'elitism': True, 'penalty': 0.005}
+    arguments={'instance_dir': "cities_small_instances",'instance':"oxford.txt", 'k':1, 'time_limit':600, 'generation_max':30, 'max_no_improvment': 5,'rseed': 7, 'population_size': 100, 'mutation_rate': 0.05, 'crossover_rate': 0.8, 'tournament_size': 4, 'elitism': True, 'penalty': 0.01}
     
     graph_open = arguments["instance_dir"] + '/' + arguments["instance"]
     print("Reading graph!")
