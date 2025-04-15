@@ -4,18 +4,25 @@ from read_graph import read_graph
 from networkx import DiGraph, Graph
 from unit import fitness, fitness_rec_rem, fitness_rec_add, cache_rec_add, cache_rec_rem, is_acceptable_solution
 class genetic_algorithm:
-    def __init__(self, instance_name, k, graph: Graph, penalty, population_size, chromosome_length, mutation_rate, crossover_rate, tournament_size, elitism, time_limit, generation_max, max_no_improvment, rseed):
+    def __init__(self, instance_name, k, graph: Graph, max_penalty, min_penalty, population_size, chromosome_length, mutation_rate, crossover_rate, tournament_size, elitism, time_limit, generation_max, max_no_improvment, rseed, node_list=None):
         self.instance_name = instance_name
         self.k = k
         self.graph = graph
-        self.penalty = penalty
+        self.penalty=min_penalty
+        self.max_penalty = max_penalty
+        self.min_penalty = min_penalty
         self.time_limit = time_limit
         self.generation_max = generation_max
         self.max_no_improvment = max_no_improvment
-        self.nodes = list(self.graph.nodes) # kopiram cvorove zbog MJESANJA - necu da mjesam original
+        self.chromosome_length = chromosome_length
+
+        
+        self.nodes = list(self.graph.nodes) 
         self.rseed = rseed
         random.seed(self.rseed)
 
+        if node_list is not None:
+            self.nodes = node_list
         self.population_size = population_size
         self.chromosome_length = chromosome_length
         self.mutation_rate = mutation_rate
@@ -53,8 +60,8 @@ class genetic_algorithm:
             if self.first_fitness_better(fitness, self.best_fitness):
                 self.best_fitness = fitness
                 self.best_chromosome = chromosome
-            if is_acceptable_solution(self.graph, self.chromosone_to_set(chromosome), self.k):
-                number_of_accepted += 1
+            #if is_acceptable_solution(self.graph, self.chromosone_to_set(chromosome), self.k):
+                #number_of_accepted += 1
         print("Percentage of accepted solutions: ", number_of_accepted / self.population_size * 100)
         return self.best_fitness, self.best_chromosome
     
@@ -225,7 +232,16 @@ class genetic_algorithm:
             result[i] = 1
 
         return result
-
+    
+    def dynamic_penalty(self, generation):
+        print("Generation: ", self.generation_max, "Max gen: ", self.generation_max)
+        ratio = (generation-2) / self.generation_max
+        return (1 - ratio) * self.min_penalty + ratio * self.max_penalty
+    def select_high_degree_nodes(self, percentage=0.5):
+        degrees = dict(self.graph.degree())
+        sorted_nodes = sorted(degrees.items(), key=lambda x: x[1], reverse=True)
+        top_n = int(len(sorted_nodes) * percentage)
+        return [node for node, _ in sorted_nodes[:top_n]]
     def run(self):
         start_time = time()
         best_time = 0
@@ -240,6 +256,8 @@ class genetic_algorithm:
             oldBestFitness = self.best_fitness
             generation += 1
             self.evolve()
+            self.penalty= self.dynamic_penalty(generation)
+            print("Penalty: ", self.penalty)
             self.evaluate_population()
             if self.first_fitness_better(self.best_fitness, oldBestFitness):
                 no_improvment = 0
@@ -256,15 +274,29 @@ class genetic_algorithm:
     
 
 if __name__ == '__main__':
-    arguments={'instance_dir': "cities_small_instances",'instance':"oxford.txt", 'k':1, 'time_limit':600, 'generation_max':30, 'max_no_improvment': 5,'rseed': 7, 'population_size': 100, 'mutation_rate': 0.05, 'crossover_rate': 0.8, 'tournament_size': 4, 'elitism': True, 'penalty': 0.01}
+    arguments={'instance_dir': "cities_small_instances",'instance':"brighton.txt", 'k':2, 'time_limit':600, 'generation_max':100, 'max_no_improvment': 5,'rseed': 78, 'population_size': 70, 'mutation_rate': 0.1, 'crossover_rate': 0.8, 'tournament_size': 4, 'elitism': True, 'max_penalty': 1, 'min_penalty': 0.01}
     
     graph_open = arguments["instance_dir"] + '/' + arguments["instance"]
     print("Reading graph!")
     g = read_graph(graph_open)
     print("Graph loaded: ", graph_open)
 
-    ga = genetic_algorithm(arguments['instance'], arguments['k'], g, arguments['penalty'], arguments['population_size'], g.number_of_nodes(), arguments['mutation_rate'], arguments['crossover_rate'], arguments['tournament_size'], arguments['elitism'], arguments['time_limit'], arguments['generation_max'], arguments['max_no_improvment'], arguments['rseed'])
+    ga = genetic_algorithm(arguments['instance'], arguments['k'], g, arguments['max_penalty'], arguments['min_penalty'], arguments['population_size'], g.number_of_nodes(), arguments['mutation_rate'], arguments['crossover_rate'], arguments['tournament_size'], arguments['elitism'], arguments['time_limit'], arguments['generation_max'], arguments['max_no_improvment'], arguments['rseed'])
 
     start_time = time()
     best_chromosome, best_fitness = ga.run()
     print("Final best fitness:", best_fitness)
+    ## best fitness i result
+## Tournament selection:
+    ##two_position_crossover: 28, 77.75
+    ##one_position_crossover: 26, 94.80
+    ##uniform_crossover: 25, 96.37   
+
+    ##uniform_crossover: 
+        ##penality 0.01, mutation: 25, 96.37   ########### BEST ############# 
+            ##penalty: 0.05: 25, 91.82
+            ## veći penalty: ubrzava malo
+        ##mutation whole: 26, 146.36
+        
+    ## Roullette selection, mutation, uniform crossover: 28, 260.35
+    ## without elitism: 26, 85.91
