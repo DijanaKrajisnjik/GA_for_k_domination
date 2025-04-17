@@ -5,13 +5,14 @@ from read_graph import read_graph
 from networkx import DiGraph, Graph
 from unit import fitness, fitness_rec_rem, fitness_rec_add, cache_rec_add, cache_rec_rem, is_acceptable_solution
 class genetic_algorithm:
-    def __init__(self, instance_name, k, graph: Graph, max_penalty, min_penalty, penalty_reduction, population_size, mutation_rate, crossover_rate, tournament_size, elitism, time_limit, generation_max, max_no_improvment, rseed, loading=False):
+    def __init__(self, instance_name, k, graph: Graph, max_penalty, min_penalty, population_reduction, population_size, mutation_rate, crossover_rate, tournament_size, elitism, time_limit, generation_max, max_no_improvment, rseed, loading=False):
         self.instance_name = instance_name
         self.k = k
         self.graph = graph
         self.max_penalty = max_penalty
         self.min_penalty = min_penalty
-        self.penalty_reduction = penalty_reduction
+        self.population_reduction = population_reduction
+        self.penalty = min_penalty
         self.time_limit = time_limit
         self.generation_max = generation_max
         self.max_no_improvment = max_no_improvment
@@ -187,7 +188,7 @@ class genetic_algorithm:
         if  self.population_size > 30:
             # Sort population by fitness to keep the best individuals
             sorted_population = sorted(zip(self.population, self.fitness), key=lambda x: x[1])
-            new_size = int(len(self.population) * (1 - self.penalty_reduction))
+            new_size = int(len(self.population) * (1 - self.population_reduction))
             self.population, self.fitness = zip(*sorted_population[:new_size])
             self.population = list(self.population)
             self.fitness = list(self.fitness)
@@ -197,7 +198,7 @@ class genetic_algorithm:
         if self.elitism:
             elite_chromosomes = self.elitism_selection()
             new_population.extend(elite_chromosomes)
-        average_fitness = sum(f[0] for f in self.fitness) / len(self.fitness)
+        #average_fitness = sum(f[0] for f in self.fitness) / len(self.fitness)
         #print("Average fitness: ", average_fitness)
 
         while len(new_population) < self.population_size:
@@ -338,14 +339,14 @@ class genetic_algorithm:
     
 
 if __name__ == '__main__':
-    arguments={'instance_dir': "cities_small_instances",'instance':"belgrade.txt", 'k':2, 'time_limit':600, 'generation_max':150, 'max_no_improvment': 5,'rseed': 78, 'population_size': 200, 'mutation_rate': 0.05, 'crossover_rate': 0.85, 'tournament_size': 4, 'elitism': True, 'max_penalty': 1, 'min_penalty': 0.01}
+    arguments={'instance_dir': "cities_small_instances",'instance':"oxford.txt", 'k':2, 'time_limit':600, 'generation_max':150, 'max_no_improvment': 5,'rseed': 78, 'population_size': 100, 'mutation_rate': 0.05, 'crossover_rate': 0.85, 'tournament_size': 4, 'elitism': True, 'max_penalty': 1, 'min_penalty': 0.01, 'penalty_reduction': 0.1}
     
     graph_open = arguments["instance_dir"] + '/' + arguments["instance"]
     print("Reading graph!")
     g = read_graph(graph_open)
     print("Graph loaded: ", graph_open)
 
-    ga = genetic_algorithm(arguments['instance'], arguments['k'], g, arguments['max_penalty'], arguments['min_penalty'], arguments['population_size'],  arguments['mutation_rate'], arguments['crossover_rate'], arguments['tournament_size'], arguments['elitism'], arguments['time_limit'], arguments['generation_max'], arguments['max_no_improvment'], arguments['rseed'], False)
+    ga = genetic_algorithm(arguments['instance'], arguments['k'], g, arguments['max_penalty'], arguments['min_penalty'], arguments['penalty_reduction'], arguments['population_size'],  arguments['mutation_rate'], arguments['crossover_rate'], arguments['tournament_size'], arguments['elitism'], arguments['time_limit'], arguments['generation_max'], arguments['max_no_improvment'], arguments['rseed'], True)
 
     start_time = time()
     initialization_time, alg_time, best_fitness, best_chromosome, valid = ga.run()
