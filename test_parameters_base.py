@@ -43,7 +43,7 @@ header = [
     "instance", "k", "population", "best_size", "alg_time", 'initialization_time', "valid", "best_chromosome"
 ]
 
-progress_log_file = "progress_log_test_parametars.txt"
+progress_log_file = "progress_log_test_parameters.txt"
 finished_keys = set()
 
 if os.path.exists(progress_log_file):
@@ -66,6 +66,7 @@ def prepare_task():
 mode = "a" if os.path.exists(OUTPUT_CSV) else "w"
 
 def run_experiments(task):
+    print(f"Započinjem: {task}")  
     instance, k, pop_size, key = task
     graph_path = os.path.join(INSTANCE_FOLDER, instance)
     g = read_graph(graph_path)
@@ -75,7 +76,7 @@ def run_experiments(task):
         graph=g,
         max_penalty=max_penalty,
         min_penalty=min_penalty,
-        penalty_reduction=population_reduction,
+        population_reduction=population_reduction,
         population_size=pop_size,
         mutation_rate=mutation_rate,
         crossover_rate=crossover_rate,
@@ -89,12 +90,27 @@ def run_experiments(task):
     initialization_time, alg_time, best_fitness, best_chromosome, valid = ga.run()
     print(f"Završeno: {instance}, k={k}, pop={pop_size}")
     print(f"Najbolji fitness: {best_fitness}, vrijeme: {alg_time}, generacija: {ga.generation_max}")
-    return [
+    result = [
         instance, k, pop_size, 
         ga.best_fitness[1], round(alg_time, 2), round(initialization_time, 2), "yes" if valid else "no", best_chromosome
-    ], key
+    ]
+    # Upisivanje u CSV iz pojedinačnog procesa
+    with open(OUTPUT_CSV, "a", newline="") as f:
+        writer = csv.writer(f)
+        writer.writerow(result)
+        f.flush()
+
+    # 📒 Upis u log
+    with open(progress_log_file, "a") as logf:
+        logf.write(f"{key}\n")
+        logf.flush()
+
+    print(f"Završeno: {instance}, k={k}, pop={pop_size}")
+    return result 
 
 if __name__ == "__main__":
+    tasks = prepare_task()
+    mode = "a" if os.path.exists(OUTPUT_CSV) else "w"
     with open(OUTPUT_CSV, mode, newline="") as csvfile:
         writer = csv.writer(csvfile)
         if mode == "w":
