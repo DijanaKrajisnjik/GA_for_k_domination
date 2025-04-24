@@ -63,3 +63,10 @@ glasgow.txt,4,200
 exeter.txt,4,100
 exeter.txt,1,200
 exeter.txt,1,150
+exeter.txt,4,150
+exeter.txt,4,200
+exeter.txt,2,200
+nottingham.txt,1,150
+nottingham.txt,1,200
+nottingham.txt,4,150
+nottingham.txt,2,200

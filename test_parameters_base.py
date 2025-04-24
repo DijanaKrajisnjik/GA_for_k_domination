@@ -32,10 +32,10 @@ max_penalty = 1
 OUTPUT_CSV = "experiment_results.csv"
 
 # 📂 Učitaj sve instance
-all_instances = [f for f in os.listdir(INSTANCE_FOLDER) if f.endswith(".txt")]
+#all_instances = [f for f in os.listdir(INSTANCE_FOLDER) if f.endswith(".txt")]
 random.seed(random.randint(0, 99999))
-selected_instances = random.sample(all_instances, max(1, int(len(all_instances) * percentage_instances)))
-
+#selected_instances = random.sample(all_instances, max(1, int(len(all_instances) * percentage_instances)))
+selected_instances = ['glasgow.txt', 'exeter.txt', 'nottingham.txt', 'sunderland.txt']
 #print("Biće testirane instance:", selected_instances)
 
 # 📝 CSV zaglavlje
