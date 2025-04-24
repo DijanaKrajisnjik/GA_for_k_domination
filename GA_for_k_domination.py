@@ -50,14 +50,62 @@ class genetic_algorithm:
         if self.loading:
             self.load_population()
             return
-        for i in range(self.population_size):
-            chromosome = [random.randint(0, 1) for j in range(self.chromosome_length)]
+
+        base_percentage = self.graph.number_of_nodes()/self.graph.number_of_edges()
+        min_percentage = base_percentage / 2.5
+        max_percentage = base_percentage * 2.5
+        #base_percentage = self.graph.number_of_nodes() / self.graph.number_of_edges()
+        #min_percentage = max(0.01, base_percentage * (self.k / 2))  # donja granica (1% minimum)
+        #max_percentage = min(0.9, base_percentage * (self.k * 2))   # gornja granica (90% max)
+
+        print("Base number of nodes: ", base_percentage,"Min: ", min_percentage, "Max: ", max_percentage)
+        for _ in range(self.population_size//2):
+            #chromosome = [random.randint(0, 1) for j in range(self.chromosome_length)]
+            percentage = random.uniform(min_percentage, max_percentage)
+            #chromosome = self.generate_sparse_chromosome(self.chromosome_length, percentage)
+            chromosome = self.generate_biased_chromosome(degree_bias=0.4, percentage=percentage)
+        
+        for _ in range(self.population_size-self.population_size//2):
+            percentage = random.uniform(min_percentage, max_percentage)
+            #chromosome = self.generate_sparse_chromosome(percentage)
+            chromosome = self.generate_sparse_chromosome(percentage=percentage)
+
             self.population.append(self.local_search_best(chromosome))
         self.save_population()    
         #self.population = [self.local_search_best(chromosome) for chromosome in self.population]
         #for i in range(self.population_size // 2):
             #self.population[i] = self.local_search_best(self.population[i])
-    
+    def generate_biased_chromosome(self, degree_bias=0.3, percentage = 0.1):
+        chromosome = [0] * self.chromosome_length
+        num_ones = int(self.chromosome_length * percentage)
+        num_biased = int(num_ones * degree_bias)
+
+        # 1. Top čvorovi po stepenu
+        degrees = dict(self.graph.degree())
+        sorted_nodes = sorted([(self.nodes.index(v), deg) for v, deg in degrees.items() if v in self.nodes], key=lambda x: x[1], reverse=True)
+        biased_indices = [i for i, _ in sorted_nodes[:num_biased]]
+
+        # 2. Ostale pozicije nasumično (bez dupliranja)
+        remaining_indices = list(set(range(self.chromosome_length)) - set(biased_indices))
+        random.shuffle(remaining_indices)
+        additional_indices = remaining_indices[:num_ones - len(biased_indices)]
+
+        # 3. Postavi jedinice
+        for i in biased_indices + additional_indices:
+            chromosome[i] = 1
+
+        return chromosome
+
+    def generate_sparse_chromosome(self, percentage=0.1):
+        # Generate a sparse chromosome with a certain percentage of ones
+        length = self.chromosome_length
+        chromosome = [0] * length
+        num_ones = int(length * percentage)
+        indices = random.sample(range(length), num_ones)
+        for idx in indices:
+            chromosome[idx] = 1
+        return chromosome
+
     def save_population(self):
         file_init_name="initial_population" + self.instance_name + ".txt"
         with open(file_init_name, 'w') as f:
@@ -124,7 +172,30 @@ class genetic_algorithm:
         # Select the top 1% of chromosomes
         elite_chromosomes = [chromosome for chromosome, _ in sorted_population[:self.population_size // 100]]
         return elite_chromosomes
+    def elitism_selection_with_diversity(self):
+        if not self.elitism:
+            return []
 
+        # Sortiraj populaciju po fitnessu (bolji je manji)
+        sorted_population = sorted(zip(self.population, self.fitness), key=lambda x: (1 + x[1][0]) * (1 + x[1][1] * self.penalty))
+
+        elite_chromosomes = [sorted_population[0][0]]
+        elite_sets = [set(i for i, bit in enumerate(sorted_population[0][0]) if bit == 1)]
+
+        for chromosome, _ in sorted_population[1:]:
+            s = set(i for i, bit in enumerate(chromosome) if bit == 1)
+            # Računaj Jaccard razliku (1 - sličnost)
+            jaccard_dist = 1 - len(elite_sets[0] & s) / max(1, len(elite_sets[0] | s))
+
+            if jaccard_dist > 0.5:
+                elite_chromosomes.append(chromosome)
+                elite_sets.append(s)
+
+            if len(elite_chromosomes) >= max(2, self.population_size // 50):
+                break
+
+        return elite_chromosomes
+    
     def one_position_crossover(self, parent1, parent2):
         if random.random() < self.crossover_rate:
             crossover_point = random.randint(0, self.chromosome_length - 1)
@@ -181,7 +252,30 @@ class genetic_algorithm:
                 mutation_point = random.randint(0, self.chromosome_length - 1)
                 chromosome[mutation_point] = 1 - chromosome[mutation_point]
         return chromosome
-    
+    def reinject_refresh(self, percentage=0.1):
+        sorted_pop_fit = sorted(zip(self.population, self.fitness), key=lambda x: (1 + x[1][0]) * (1 + x[1][1] * self.penalty), reverse=True)
+        #num_replace = random.randint(int(percentage * self.population_size), int(0.1 * self.population_size))
+        num_replace = int(percentage * self.population_size)
+        for i in range(num_replace):
+            new_chrom = self.generate_biased_chromosome(percent_ones=percentage)  # ili biased
+            #improved_chrom = self.local_search_best(new_chrom)
+            worst_index = self.population.index(sorted_pop_fit[i][0])
+            #self.population[worst_index] = improved_chrom
+            self.population[worst_index] = new_chrom
+        # Reinject a portion of the population with new random chromosomes
+        #num_replace = int(0.1 * self.population_size)
+        #for i in range(num_replace):
+            #percentage = random.uniform(0.05, 0.25)
+            #chromosome = self.generate_sparse_chromosome(self.chromosome_length, percentage)
+            #self.population.append(self.local_search_best(chromosome))
+
+            
+            #new_chrom = [0] * self.chromosome_length
+            #ones = random.sample(range(self.chromosome_length), random.randint(5, int(0.2 * self.chromosome_length)))
+            #for i in ones:
+                #new_chrom[i] = 1
+            #self.population[-1 * (1 + i)] = self.local_search_best(new_chrom)
+
     def evolve(self):
         # Reduce the population size dynamically if conditions are met
         #reduction_fraction = 0.1
@@ -196,7 +290,7 @@ class genetic_algorithm:
 
         new_population = []
         if self.elitism:
-            elite_chromosomes = self.elitism_selection()
+            elite_chromosomes = self.elitism_selection_with_diversity()
             new_population.extend(elite_chromosomes)
         #average_fitness = sum(f[0] for f in self.fitness) / len(self.fitness)
         #print("Average fitness: ", average_fitness)
@@ -318,6 +412,11 @@ class genetic_algorithm:
             oldBestFitness = self.best_fitness
             generation += 1
             self.evolve()
+            # Testirano za leicester, bolje bez njega jer usporava
+            #if generation % 5 == 0 or no_improvment > 0:
+                #self.reinject_refresh(percentage= no_improvment/10 if no_improvment>0 else 0.1)
+            #if no_improvment > 0:
+                #self.reinject_refresh(percentage= no_improvment/10)
             self.penalty= self.dynamic_penalty(generation)
             print("Penalty: ", self.penalty)
             self.evaluate_population()
@@ -339,14 +438,14 @@ class genetic_algorithm:
     
 
 if __name__ == '__main__':
-    arguments={'instance_dir': "cities_small_instances",'instance':"oxford.txt", 'k':2, 'time_limit':600, 'generation_max':150, 'max_no_improvment': 5,'rseed': 78, 'population_size': 100, 'mutation_rate': 0.05, 'crossover_rate': 0.85, 'tournament_size': 4, 'elitism': True, 'max_penalty': 1, 'min_penalty': 0.01, 'penalty_reduction': 0.1}
+    arguments={'instance_dir': "cities_small_instances",'instance':"leicester.txt", 'k':2, 'time_limit':600, 'generation_max':150, 'max_no_improvment': 5,'rseed': 78, 'population_size': 100, 'mutation_rate': 0.05, 'crossover_rate': 0.85, 'tournament_size': 4, 'elitism': True, 'max_penalty': 1, 'min_penalty': 0.01, 'penalty_reduction': 0.1}
     
     graph_open = arguments["instance_dir"] + '/' + arguments["instance"]
     print("Reading graph!")
     g = read_graph(graph_open)
     print("Graph loaded: ", graph_open)
 
-    ga = genetic_algorithm(arguments['instance'], arguments['k'], g, arguments['max_penalty'], arguments['min_penalty'], arguments['penalty_reduction'], arguments['population_size'],  arguments['mutation_rate'], arguments['crossover_rate'], arguments['tournament_size'], arguments['elitism'], arguments['time_limit'], arguments['generation_max'], arguments['max_no_improvment'], arguments['rseed'], True)
+    ga = genetic_algorithm(arguments['instance'], arguments['k'], g, arguments['max_penalty'], arguments['min_penalty'], arguments['penalty_reduction'], arguments['population_size'],  arguments['mutation_rate'], arguments['crossover_rate'], arguments['tournament_size'], arguments['elitism'], arguments['time_limit'], arguments['generation_max'], arguments['max_no_improvment'], arguments['rseed'], False)
 
     start_time = time()
     initialization_time, alg_time, best_fitness, best_chromosome, valid = ga.run()
@@ -378,3 +477,32 @@ if __name__ == '__main__':
 #### Oxford res: 48, time: 111-78 = 33s
 #### with child LS reduction (min population 30): res 52, time 19s
 #### with bigger min population (50): 50, 28s
+
+#### 1. Best fitness: (0, 42, 303, 7, 934) Time: 242.9368588924408 Generation: 16
+#####Initialization time: 97.45764994621277 Algorithm time: 242.9216022491455 Best fitness: 42 Valid: True
+#### 2.Best fitness: (0, 42, 293, 7, 934) Time: 207.05100440979004 Generation: 17
+##### Initialization time: 96.163827419281 Algorithm time: 207.03664565086365 Best fitness: 42 Valid: True
+#### 3. Best fitness: (0, 42, 316, 6, 934) Time: 143.37209010124207 Generation: 19
+#####Initialization time: 52.08418321609497 Algorithm time: 143.35619688034058 Best fitness: 42 Valid: True
+#### 4. Best fitness: (0, 42, 316, 6, 934) Time: 143.49504041671753 Generation: 19
+#####Initialization time: 47.984344482421875 Algorithm time: 143.48119974136353 Best fitness: 42 Valid: True
+
+### coventry.txt,2,100,76,258.6,822.85,yes
+####Best fitness: (0, 75, 296, 6, 1100) Time: 174.4880576133728 Generation: 24
+#####Initialization time: 69.58992743492126 Algorithm time: 174.47254586219788 Best fitness: 75 Valid: True
+
+### leicester.txt,2,100,79,490.44,1793.34,yes
+####Best fitness: (0, 79, 599, 8, 1452) Time: 283.5680708885193 Generation: 17
+#####Initialization time: 135.6845829486847 Algorithm time: 283.5420699119568 Best fitness: 79 Valid: True
+####Best fitness: (0, 78, 571, 9, 1453) Time: 275.5397217273712 Generation: 20
+#####Initialization time: 138.87649869918823 Algorithm time: 275.51872062683105 Best fitness: 78 Valid: True
+#### Best fitness: (0, 77, 522, 7, 1454) Time: 370.42776370048523 Generation: 21
+##### Initialization time: 0.028728485107421875 Algorithm time: 370.4028089046478 Best fitness: 77 Valid: True
+#### Best fitness: (0, 77, 504, 7, 1454) Time: 256.5586450099945 Generation: 17
+#####Initialization time: 0.023563861846923828 Algorithm time: 256.5335817337036 Best fitness: 77 Valid: True
+#### Best fitness: (0, 77, 503, 8, 1454) Time: 302.5390508174896 Generation: 19
+#####Initialization time: 0.021300315856933594 Algorithm time: 302.51588916778564 Best fitness: 77 Valid: True
+#### Best fitness: (0, 78, 594, 8, 1453) Time: 485.5801510810852 Generation: 22
+#####Initialization time: 0.02158522605895996 Algorithm time: 485.55440068244934 Best fitness: 78 Valid: True
+### Best fitness: (0, 78, 443, 7, 1453) Time: 231.00704073905945 Generation: 17
+#### Initialization time: 0.023653030395507812 Algorithm time: 230.98172211647034 Best fitness: 78 Valid: True
