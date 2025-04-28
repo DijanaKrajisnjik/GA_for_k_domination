@@ -1,8 +1,7 @@
 import os
 import random
 import csv
-from multiprocessing import Pool, cpu_count
-
+from multiprocessing import Pool
 from GA_for_k_domination import genetic_algorithm
 from read_graph import read_graph
 
@@ -14,7 +13,7 @@ population_sizes = [100, 150, 200]
 #mutation_rates = [0.01, 0.05]
 #crossover_rates = [0.75, 0.85]
 #min_penalties = [0.005,0.01, 0.02]
-mutation_rate = 0.08
+mutation_rate = 0.1
 crossover_rate = 0.8
 min_penalty = 0.01
 
@@ -29,21 +28,22 @@ max_generations = 100
 max_no_improvment = 4
 max_penalty = 1
 # 📄 CSV izlaz
-OUTPUT_CSV = "experiment_results.csv"
+OUTPUT_CSV = "experiment_results_v2.csv"
 
 # 📂 Učitaj sve instance
-#all_instances = [f for f in os.listdir(INSTANCE_FOLDER) if f.endswith(".txt")]
+all_instances = [f for f in os.listdir(INSTANCE_FOLDER) if f.endswith(".txt")]
 random.seed(random.randint(0, 99999))
 #selected_instances = random.sample(all_instances, max(1, int(len(all_instances) * percentage_instances)))
-selected_instances = ['glasgow.txt', 'exeter.txt', 'nottingham.txt', 'sunderland.txt']
-#print("Biće testirane instance:", selected_instances)
+#selected_instances = ['glasgow.txt', 'exeter.txt', 'nottingham.txt', 'sunderland.txt']
+selected_instances = all_instances
+print("Biće testirane instance:", selected_instances)
 
 # 📝 CSV zaglavlje
 header = [
     "instance", "k", "population", "best_size", "alg_time", 'initialization_time', "valid", "best_chromosome"
 ]
 
-progress_log_file = "progress_log_test_parameters.txt"
+progress_log_file = "progress_log_test_parameters_v2.txt"
 finished_keys = set()
 
 if os.path.exists(progress_log_file):

@@ -47,18 +47,65 @@ class genetic_algorithm:
 
             
     def initialize_population(self):
-        if self.loading:
-            self.load_population()
-            return
+        #if self.loading:
+            #self.load_population()
+            #return
 
         base_percentage = self.graph.number_of_nodes()/self.graph.number_of_edges()
-        min_percentage = base_percentage / 2.5
-        max_percentage = base_percentage * 2.5
+        #min_percentage = pow((self.k / sqrt(base_percentage)) * 0.01, 2)
+        #max_percentage = min(1, base_percentage + 0.05) + (self.k / sqrt(base_percentage)) * 0.01
+        #print("Base percentage ", base_percentage,"Min: ", min_percentage, "Max: ", max_percentage)
+        
+        # Testirano: Best fitness: (0, 83, 478, 10, 893) Time: 172.0357894897461 Generation: 13
+        #Initialization time: 137.6408486366272 Algorithm time: 172.02130460739136 Best fitness: 83 Valid: True
+        #max_percentage = max(k*0.35, self.k*base_percentage * 1.25)
+        min_percentage = self.k*base_percentage / 5
+        max_percentage = base_percentage * self.k * 1.25
+
+        #Za testiranje: Best fitness: (0, 81, 459, 10, 895) Time: 174.45230174064636 Generation: 15
+        #Initialization time: 173.80391430854797 Algorithm time: 174.43782377243042 Best fitness: 81 Valid: True
+
+        #min_percentage = base_percentage / self.k
+        #max_percentage = base_percentage * self.k
+
+        # Za testiranje:Best fitness: (0, 81, 497, 11, 895) Time: 240.30986905097961 Generation: 21
+        #Initialization time: 109.5612564086914 Algorithm time: 240.29135298728943 Best fitness: 81 Valid: True
+        #min_percentage = 0.0125 * self.k
+        #max_percentage = 0.065 * self.k
+
+        # Za testiranje:
+        #Best fitness: (0, 83, 480, 11, 893) Time: 234.86414074897766 Generation: 20
+        #Initialization time: 165.0601305961609 Algorithm time: 234.84715056419373 Best fitness: 83 Valid: True
+        #min_percentage = base_percentage / sqrt(self.k)
+        #max_percentage = base_percentage * pow(self.k, 2)
+
+        # Za testiranje: Best fitness: (0, 81, 445, 11, 895) Time: 243.8924651145935 Generation: 25
+        #Initialization time: 120.5368230342865 Algorithm time: 243.87470841407776 Best fitness: 81 Valid: True
+
+        #min_percentage = 0.2
+        #max_percentage = 0.3
+        
+        # Testiran: Best fitness: (0, 79, 392, 11, 897) Time: 203.0644257068634 Generation: 21
+        ##Initialization time: 105.87152314186096 Algorithm time: 203.05018830299377 Best fitness: 79 Valid: True
+        #min_percentage = 0.02
+        #max_percentage = 0.15
+        
+        #Formula: ---- Radilo najbolje ----
+        #min_percentage = 0.015 * self.k
+        #max_percentage = 0.065 * self.k
+
+        #min_percentage = 0.03
+        #max_percentage = 0.2
+
+        #Testiran: Best fitness: (0, 81, 505, 10, 895) Time: 182.24197125434875 Generation: 16
+        #Initialization time: 243.1526973247528 Algorithm time: 182.22357869148254 Best fitness: 81 Valid: True
+        #min_percentage = 0
+        #max_percentage = 0.05
         #base_percentage = self.graph.number_of_nodes() / self.graph.number_of_edges()
         #min_percentage = max(0.01, base_percentage * (self.k / 2))  # donja granica (1% minimum)
         #max_percentage = min(0.9, base_percentage * (self.k * 2))   # gornja granica (90% max)
 
-        print("Base number of nodes: ", base_percentage,"Min: ", min_percentage, "Max: ", max_percentage)
+        print("Base percentage ", base_percentage,"Min: ", min_percentage, "Max: ", max_percentage)
         for _ in range(self.population_size//2):
             #chromosome = [random.randint(0, 1) for j in range(self.chromosome_length)]
             percentage = random.uniform(min_percentage, max_percentage)
@@ -71,7 +118,7 @@ class genetic_algorithm:
             chromosome = self.generate_sparse_chromosome(percentage=percentage)
 
             self.population.append(self.local_search_best(chromosome))
-        self.save_population()    
+        #self.save_population()    
         #self.population = [self.local_search_best(chromosome) for chromosome in self.population]
         #for i in range(self.population_size // 2):
             #self.population[i] = self.local_search_best(self.population[i])
@@ -390,12 +437,74 @@ class genetic_algorithm:
 
         return result
     
+    def inject_diversity(self, percentage=0.1, variance=0.15):
+        num_to_inject = int(self.population_size * percentage)
+        new_chromosomes = []
+
+        best_size = self.best_fitness[1]  # trenutna najbolja kardinalnost
+
+        for _ in range(num_to_inject):
+            # +- varijacija oko najboljeg broja čvorova
+            variation = int(best_size * random.uniform(-variance, variance))
+            target_size = max(1, best_size + variation)
+
+            new_chrom = self.generate_biased_chromosome(degree_bias=0.4, percentage=target_size / self.chromosome_length)
+            #new_chrom = [0] * self.chromosome_length
+            #ones_indices = random.sample(range(self.chromosome_length), min(target_size, self.chromosome_length))
+            #for idx in ones_indices:
+                #new_chrom[idx] = 1
+
+            new_chrom = self.local_search_best(new_chrom)
+            new_chromosomes.append(new_chrom)
+
+        # Zamijeni najgore jedinke (ili dodaj ako želiš privremeno veću populaciju)
+        #self.population[-num_to_inject:] = new_chromosomes
+        self.population.extend(new_chromosomes)
+        self.fitness.extend([self.fitness_function(c) for c in new_chromosomes])
+
+
     def dynamic_penalty(self, generation):
         print("Generation: ", generation, "Max gen: ", self.generation_max)
         ratio = (generation-2) / self.generation_max
         return (1 - ratio) * self.min_penalty + ratio * self.max_penalty
     
-    
+    def change_duplicates(self):    
+        seen = set()
+        new_population = []
+        duplicates = []
+
+        for chrom in self.population:
+            t = tuple(chrom)
+            if t not in seen:
+                seen.add(t)
+                new_population.append(chrom)
+            else:
+                duplicates.append(chrom)
+
+        unique_ratio = len(new_population) / len(self.population)
+        print("Unique ratio:", round(unique_ratio, 2))
+
+        # Ako ima previše duplikata – zamijeni ih
+        if unique_ratio < 0.70:
+            start_time = time()
+            print(f"⚠️  Diverzitet nizak ({round(unique_ratio,2)}), zamjena {len(duplicates)} duplikata.")
+            for _ in range(len(duplicates)):
+                # Brza random inicijalizacija
+                percentage = random.uniform(0.05, 0.25)
+                new_chrom = self.generate_sparse_chromosome(percentage=percentage)
+                # Ako hoćeš da koristiš pametnu verziju:generate_sparse_chromosome
+                # new_chrom = self.generate_biased_chromosome()
+
+                # Ako želiš i LS, koristi ovo:
+                # new_chrom = self.local_search_best(new_chrom)
+
+                new_population.append(self.local_search_best(new_chrom))
+
+            self.population = new_population[:self.population_size]  # da se ne prekorači veličina
+            end_time = time() - start_time
+            print(f"✅  Zamjena duplikata završena, trajalo {end_time:.2f} sekundi.")
+
+        
     def run(self):
         start_time = time()
         best_time = 0
@@ -409,9 +518,13 @@ class genetic_algorithm:
         print("Initial population evaluated, Time:", time() - start_time)
         while time() - start_time < self.time_limit and generation < self.generation_max and no_improvment < self.max_no_improvment:
             print("Current generation:", generation, "Time:", time() - start_time)
+            #if no_improvment > 0:
+                #self.inject_diversity(percentage=no_improvment/10)
             oldBestFitness = self.best_fitness
             generation += 1
             self.evolve()
+            #self.change_duplicates()
+
             # Testirano za leicester, bolje bez njega jer usporava
             #if generation % 5 == 0 or no_improvment > 0:
                 #self.reinject_refresh(percentage= no_improvment/10 if no_improvment>0 else 0.1)
@@ -427,7 +540,8 @@ class genetic_algorithm:
             else:
                 no_improvment += 1
                 print("No improvement, no_improvment:", no_improvment)
-        
+                #self.inject_diversity(percentage=no_improvment/10)
+
         alg_time = time() - start_time
         print("Algorithm finished, Time:", alg_time)
     
@@ -438,7 +552,7 @@ class genetic_algorithm:
     
 
 if __name__ == '__main__':
-    arguments={'instance_dir': "cities_small_instances",'instance':"leicester.txt", 'k':2, 'time_limit':600, 'generation_max':150, 'max_no_improvment': 5,'rseed': 78, 'population_size': 100, 'mutation_rate': 0.05, 'crossover_rate': 0.85, 'tournament_size': 4, 'elitism': True, 'max_penalty': 1, 'min_penalty': 0.01, 'penalty_reduction': 0.1}
+    arguments={'instance_dir': "cities_small_instances",'instance':"newcastle.txt", 'k':2, 'time_limit':600, 'generation_max':100, 'max_no_improvment': 5,'rseed': random.randint(1,1000), 'population_size': 100, 'mutation_rate': 0.15, 'crossover_rate': 0.80, 'tournament_size': 4, 'elitism': True, 'max_penalty': 2, 'min_penalty': 0.01, 'penalty_reduction': 0.1}
     
     graph_open = arguments["instance_dir"] + '/' + arguments["instance"]
     print("Reading graph!")
@@ -506,3 +620,7 @@ if __name__ == '__main__':
 #####Initialization time: 0.02158522605895996 Algorithm time: 485.55440068244934 Best fitness: 78 Valid: True
 ### Best fitness: (0, 78, 443, 7, 1453) Time: 231.00704073905945 Generation: 17
 #### Initialization time: 0.023653030395507812 Algorithm time: 230.98172211647034 Best fitness: 78 Valid: True
+###Best fitness: (0, 76, 486, 9, 1455) Time: 269.9954090118408 Generation: 18
+####Initialization time: 167.7390730381012 Algorithm time: 269.9696650505066 Best fitness: 76 Valid: True
+### pop=150 Best fitness: (0, 75, 471, 7, 1456) Time: 292.03903102874756 Generation: 17
+####Initialization time: 262.54358100891113 Algorithm time: 292.0097711086273 Best fitness: 75 Valid: True
