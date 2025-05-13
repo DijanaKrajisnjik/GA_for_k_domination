@@ -47,9 +47,9 @@ class genetic_algorithm:
 
             
     def initialize_population(self):
-        #if self.loading:
-            #self.load_population()
-            #return
+        if self.loading:
+            self.load_population()
+            return
 
         base_percentage = self.graph.number_of_nodes()/self.graph.number_of_edges()
         #min_percentage = pow((self.k / sqrt(base_percentage)) * 0.01, 2)
@@ -58,9 +58,9 @@ class genetic_algorithm:
         
         # Testirano: Best fitness: (0, 83, 478, 10, 893) Time: 172.0357894897461 Generation: 13
         #Initialization time: 137.6408486366272 Algorithm time: 172.02130460739136 Best fitness: 83 Valid: True
-        #max_percentage = max(k*0.35, self.k*base_percentage * 1.25)
+        max_percentage = max(self.k*0.05, self.k*base_percentage * 1.25)
         min_percentage = self.k*base_percentage / 5
-        max_percentage = base_percentage * self.k * 1.25
+        #max_percentage = base_percentage * self.k * 1.25
 
         #Za testiranje: Best fitness: (0, 81, 459, 10, 895) Time: 174.45230174064636 Generation: 15
         #Initialization time: 173.80391430854797 Algorithm time: 174.43782377243042 Best fitness: 81 Valid: True
@@ -106,22 +106,86 @@ class genetic_algorithm:
         #max_percentage = min(0.9, base_percentage * (self.k * 2))   # gornja granica (90% max)
 
         print("Base percentage ", base_percentage,"Min: ", min_percentage, "Max: ", max_percentage)
-        for _ in range(self.population_size//2):
-            #chromosome = [random.randint(0, 1) for j in range(self.chromosome_length)]
+        #for _ in range(self.population_size//2):
+        for _ in range(self.population_size):
+            ##chromosome = [random.randint(0, 1) for j in range(self.chromosome_length)]
             percentage = random.uniform(min_percentage, max_percentage)
-            #chromosome = self.generate_sparse_chromosome(self.chromosome_length, percentage)
-            chromosome = self.generate_biased_chromosome(degree_bias=0.4, percentage=percentage)
-        
-        for _ in range(self.population_size-self.population_size//2):
-            percentage = random.uniform(min_percentage, max_percentage)
-            #chromosome = self.generate_sparse_chromosome(percentage)
-            chromosome = self.generate_sparse_chromosome(percentage=percentage)
-
+            chromosome = self.generate_weighted_biased_chromosome(percentage=percentage, bias_strength=2.0)
+            ##chromosome = self.generate_sparse_chromosome(self.chromosome_length, percentage)
+            #chromosome = self.generate_biased_chromosome(degree_bias=0.25, percentage=percentage)
             self.population.append(self.local_search_best(chromosome))
-        #self.save_population()    
+        
+        #for _ in range(self.population_size-self.population_size//2):
+        #for _ in range(self.population_size):
+            #percentage = random.uniform(min_percentage, max_percentage)
+            #chromosome = self.generate_sparse_chromosome(percentage)
+            #chromosome = self.generate_sparse_chromosome(percentage=percentage)
+
+            #self.population.append(self.local_search_best(chromosome))
+        print("Populacija inicijalizovana. Broj hromozoma:", len(self.population))
+
+        self.save_population()    
         #self.population = [self.local_search_best(chromosome) for chromosome in self.population]
         #for i in range(self.population_size // 2):
             #self.population[i] = self.local_search_best(self.population[i])
+    
+    def generate_biased_chromosome_v2(self, top_percent=0.65, degree_bias=0.3, percentage=0.1):
+        chromosome = [0] * self.chromosome_length
+        num_ones = int(self.chromosome_length * percentage)
+
+        # 1. Odredi top čvorove po stepenu (širi skup npr. top 60%)
+        degrees = dict(self.graph.degree())
+        sorted_nodes = sorted(
+            [(self.nodes.index(v), deg) for v, deg in degrees.items() if v in self.nodes],
+            key=lambda x: x[1],
+            reverse=True
+        )
+        top_k = int(self.chromosome_length * top_percent)
+        top_indices = [i for i, _ in sorted_nodes[:top_k]]
+
+        # 2. Nasumično uzmi dio iz top skupa (biased)
+        num_biased = int(num_ones * degree_bias)
+        biased_indices = random.sample(top_indices, min(num_biased, len(top_indices)))
+
+        # 3. Ostatak nasumično iz svih koji nisu u biased
+        remaining_needed = num_ones - len(biased_indices)
+        available_indices = list(set(range(self.chromosome_length)) - set(biased_indices))
+        random.shuffle(available_indices)
+        additional_indices = available_indices[:remaining_needed]
+
+        # 4. Postavi gene
+        for idx in biased_indices + additional_indices:
+            chromosome[idx] = 1
+
+        return chromosome
+
+    def generate_weighted_biased_chromosome(self, percentage=0.1, bias_strength=2.0):
+        """
+        - percentage: ukupan procenat gena sa vrijednošću 1.
+        - bias_strength: veće vrijednosti favorizuju visoko stepenovane čvorove (npr. 2.0 do 5.0).
+        """
+        chromosome = [0] * self.chromosome_length
+        num_ones = int(self.chromosome_length * percentage)
+
+        # Izračunaj stepen svakog čvora
+        degrees = dict(self.graph.degree())
+        node_indices = [self.nodes.index(v) for v in self.nodes if v in degrees]
+
+        # Uskladi redoslijed stepene sa indeksima
+        weights = [degrees[self.nodes[i]] ** bias_strength for i in node_indices]
+
+        # Normalizacija (opcionalno, ali može pomoći)
+        total_weight = sum(weights)
+        weights = [w / total_weight for w in weights]
+
+        # Ponderisani izbor indeksa
+        chosen_indices = random.choices(node_indices, weights=weights, k=num_ones)
+
+        for idx in chosen_indices:
+            chromosome[idx] = 1
+
+        return chromosome
+
     def generate_biased_chromosome(self, degree_bias=0.3, percentage = 0.1):
         chromosome = [0] * self.chromosome_length
         num_ones = int(self.chromosome_length * percentage)
@@ -326,6 +390,8 @@ class genetic_algorithm:
     def evolve(self):
         # Reduce the population size dynamically if conditions are met
         #reduction_fraction = 0.1
+        print("Populacija ima hromozoma:", len(self.population))
+
         if  self.population_size > 30:
             # Sort population by fitness to keep the best individuals
             sorted_population = sorted(zip(self.population, self.fitness), key=lambda x: x[1])
@@ -552,7 +618,7 @@ class genetic_algorithm:
     
 
 if __name__ == '__main__':
-    arguments={'instance_dir': "cities_small_instances",'instance':"newcastle.txt", 'k':2, 'time_limit':600, 'generation_max':100, 'max_no_improvment': 5,'rseed': random.randint(1,1000), 'population_size': 100, 'mutation_rate': 0.15, 'crossover_rate': 0.80, 'tournament_size': 4, 'elitism': True, 'max_penalty': 2, 'min_penalty': 0.01, 'penalty_reduction': 0.1}
+    arguments={'instance_dir': "cities_small_instances",'instance':"southampton.txt", 'k':2, 'time_limit':1800, 'generation_max':100, 'max_no_improvment': 4,'rseed': random.randint(1,1000), 'population_size': 50, 'mutation_rate': 0.15, 'crossover_rate': 0.80, 'tournament_size': 4, 'elitism': True, 'max_penalty': 2, 'min_penalty': 0.01, 'penalty_reduction': 0.1}
     
     graph_open = arguments["instance_dir"] + '/' + arguments["instance"]
     print("Reading graph!")
